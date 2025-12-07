@@ -1,7 +1,7 @@
 {
-	"name": "{{project-name}}",
+	"name": "authn-fido2",
 	"version": "1.0.0",
-	"description": "{{project-name}}",
+	"description": "authn-fido2",
 	"private": "true",
 	"typescript-template": {
 		"base": "1.0.1",
@@ -47,13 +47,13 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/{{project-name}}/{{project-name}}.git"
+		"url": "git+https://github.com/authn-fido2/authn-fido2.git"
 	},
-	"author": "{{project-name}}",
+	"author": "authn-fido2",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/{{project-name}}/{{project-name}}/issues"
+		"url": "https://github.com/authn-fido2/authn-fido2/issues"
 	},
-	"homepage": "https://github.com/{{project-name}}/{{project-name}}#readme",
+	"homepage": "https://github.com/authn-fido2/authn-fido2#readme",
 	"keywords": []
 }
