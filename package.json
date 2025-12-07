@@ -1,7 +1,7 @@
 {
-	"name": "auth-template",
+	"name": "{{project-name}}",
 	"version": "1.0.0",
-	"description": "auth-template",
+	"description": "{{project-name}}",
 	"private": "true",
 	"typescript-template": {
 		"base": "1.0.1",
@@ -21,8 +21,14 @@
 		"script": "ts-node scripts",
 		"publish": "npm run script -- publish"
 	},
+	"dependencies": {
+		"@riao/dbal": "^3.8.0",
+		"@riao/iam": "^3.0.0"
+	},
 	"devDependencies": {
 		"@istanbuljs/nyc-config-typescript": "^1.0.2",
+		"@riao/cli": "^3.0.1",
+		"@riao/postgres": "^3.5.0",
 		"@types/jasmine": "^5.1.4",
 		"@types/node": "^18.19.39",
 		"@typescript-eslint/eslint-plugin": "^7.13.1",
@@ -41,13 +47,13 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/auth-template/auth-template.git"
+		"url": "git+https://github.com/{{project-name}}/{{project-name}}.git"
 	},
-	"author": "auth-template",
+	"author": "{{project-name}}",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/auth-template/auth-template/issues"
+		"url": "https://github.com/{{project-name}}/{{project-name}}/issues"
 	},
-	"homepage": "https://github.com/auth-template/auth-template#readme",
+	"homepage": "https://github.com/{{project-name}}/{{project-name}}#readme",
 	"keywords": []
 }

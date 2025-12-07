@@ -1,8 +1,10 @@
 import 'jasmine';
-import * as index from '../../src';
+import { maindb } from '../../database/main';
 
-describe('auth-template', () => {
-	it('exports a', () => {
-		expect(index.a).toBeTrue();
-	});
+beforeAll(async () => {
+	await maindb.init();
+});
+
+afterAll(async () => {
+	await maindb.disconnect();
 });
