@@ -740,12 +740,12 @@ describe('Authentication - FIDO2', () => {
 		});
 
 		it('should not fail when no credentials exist for userID', async () => {
-			const noCreditsPrincipal = await createTestPrincipal(
+			const noCredsPrincipal = await createTestPrincipal(
 				`no-creds-challenge-${Date.now()}`
 			);
 
 			const options = await auth.generateAuthenticationOptions(
-				noCreditsPrincipal.id!.toString()
+				noCredsPrincipal.id!.toString()
 			);
 
 			expect(options.challenge).toBeDefined();
