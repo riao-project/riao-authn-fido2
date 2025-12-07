@@ -156,55 +156,50 @@ export class Fido2Authentication<
 			expectedRPID: this.rpID,
 		};
 
-		try {
-			const verification = await verifyRegistrationResponse(opts);
+		const verification = await verifyRegistrationResponse(opts);
 
-			if (verification.verified && verification.registrationInfo) {
-				// Store the credential in database
-				const { credential } = verification.registrationInfo;
+		if (verification.verified && verification.registrationInfo) {
+			// Store the credential in database
+			const { credential } = verification.registrationInfo;
 
-				// Extract transports from the original response
-				let transports: string[] = [];
-				if (response.response.transports) {
-					transports = response.response.transports;
-				}
-				else {
-					// Default to common transports if not specified
-					transports = ['internal', 'hybrid'];
-				}
-
-				await this.credentialRepo.insert({
-					records: [
-						{
-							// Use the original credential ID from the response
-							id: response.id,
-							principal_id: principal.id,
-							public_key: Buffer.from(
-								credential.publicKey
-							).toString('base64'),
-							counter: credential.counter,
-							transports: JSON.stringify(transports),
-						},
-					],
-				});
-
-				// Mark challenge as used
-				await this.challengeRepo.update({
-					set: { used: true },
-					where: { id: storedChallenge.id },
-				});
-
-				return {
-					verified: true,
-					registrationInfo: verification.registrationInfo,
-				};
+			// Extract transports from the original response
+			let transports: string[] = [];
+			if (response.response.transports) {
+				transports = response.response.transports;
+			}
+			else {
+				// Default to common transports if not specified
+				transports = ['internal', 'hybrid'];
 			}
 
-			return { verified: false };
+			await this.credentialRepo.insert({
+				records: [
+					{
+						// Use the original credential ID from the response
+						id: response.id,
+						principal_id: principal.id,
+						public_key: Buffer.from(credential.publicKey).toString(
+							'base64'
+						),
+						counter: credential.counter,
+						transports: JSON.stringify(transports),
+					},
+				],
+			});
+
+			// Mark challenge as used
+			await this.challengeRepo.update({
+				set: { used: true },
+				where: { id: storedChallenge.id },
+			});
+
+			return {
+				verified: true,
+				registrationInfo: verification.registrationInfo,
+			};
 		}
-		catch (error) {
-			return { verified: false };
-		}
+
+		return { verified: false };
 	}
 
 	public async generateAuthenticationOptions(
