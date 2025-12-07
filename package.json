@@ -23,16 +23,19 @@
 	},
 	"dependencies": {
 		"@riao/dbal": "^3.8.0",
-		"@riao/iam": "^3.0.0"
+		"@riao/iam": "^3.0.0",
+		"@simplewebauthn/server": "^13.2.2"
 	},
 	"devDependencies": {
 		"@istanbuljs/nyc-config-typescript": "^1.0.2",
 		"@riao/cli": "^3.0.1",
 		"@riao/postgres": "^3.5.0",
+		"@types/express": "^5.0.6",
 		"@types/jasmine": "^5.1.4",
 		"@types/node": "^18.19.39",
 		"@typescript-eslint/eslint-plugin": "^7.13.1",
 		"eslint": "^8.57.0",
+		"express": "^5.2.1",
 		"jasmine": "^5.1.0",
 		"nyc": "^17.0.0",
 		"prettier": "^3.3.2",

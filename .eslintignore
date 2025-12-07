@@ -7,3 +7,5 @@ doc*/
 node_modules/
 
 *.md
+
+examples/server/public/*
