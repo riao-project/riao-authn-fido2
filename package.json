@@ -1,7 +1,7 @@
 {
-	"name": "authn-fido2",
+	"name": "@riao/authn-fido2",
 	"version": "1.0.0",
-	"description": "authn-fido2",
+	"description": "Riao FIDO2",
 	"private": "true",
 	"typescript-template": {
 		"base": "1.0.1",
@@ -23,16 +23,19 @@
 	},
 	"dependencies": {
 		"@riao/dbal": "^3.8.0",
-		"@riao/iam": "^3.0.0"
+		"@riao/iam": "^3.0.0",
+		"@simplewebauthn/server": "^13.2.2"
 	},
 	"devDependencies": {
 		"@istanbuljs/nyc-config-typescript": "^1.0.2",
 		"@riao/cli": "^3.0.1",
 		"@riao/postgres": "^3.5.0",
+		"@types/express": "^5.0.6",
 		"@types/jasmine": "^5.1.4",
 		"@types/node": "^18.19.39",
 		"@typescript-eslint/eslint-plugin": "^7.13.1",
 		"eslint": "^8.57.0",
+		"express": "^5.2.1",
 		"jasmine": "^5.1.0",
 		"nyc": "^17.0.0",
 		"prettier": "^3.3.2",
@@ -47,13 +50,22 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/authn-fido2/authn-fido2.git"
+		"url": "git+https://github.com/riao-project/authn-fido2.git"
 	},
 	"author": "authn-fido2",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/authn-fido2/authn-fido2/issues"
+		"url": "https://github.com/riao-project/authn-fido2/issues"
 	},
-	"homepage": "https://github.com/authn-fido2/authn-fido2#readme",
-	"keywords": []
+	"homepage": "https://github.com/riao-project/authn-fido2#readme",
+	"keywords": [
+		"riao",
+		"fido2",
+		"webauthn",
+		"authentication",
+		"authn",
+		"security",
+		"iam",
+		"typescript"
+	]
 }
