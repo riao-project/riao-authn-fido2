@@ -3,6 +3,7 @@ import { createDatabase, runMigrations, runMigrationsDown } from '../database';
 import { Principal } from '@riao/iam';
 // eslint-disable-next-line max-len
 import { AuthenticationFido2Migrations } from '../../src/authentication-fido2-migrations';
+import { AuthMigrations } from '@riao/iam/auth/auth-migrations';
 
 describe('Authentication - FIDO2', () => {
 	const db = createDatabase('authentication-fido2');
@@ -139,6 +140,9 @@ describe('Authentication - FIDO2', () => {
 
 	beforeAll(async () => {
 		await db.init();
+		// Run parent migrations first
+		await runMigrations(db, new AuthMigrations());
+		// Run driver-specific migrations
 		await runMigrations(db, new AuthenticationFido2Migrations());
 		await runMigrationsDown(db, new AuthenticationFido2Migrations());
 		await runMigrations(db, new AuthenticationFido2Migrations());

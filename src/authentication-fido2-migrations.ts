@@ -1,12 +1,11 @@
-import { Migration } from '@riao/dbal';
-import { AuthMigrations } from '@riao/iam/auth/auth-migrations';
+import { Migration, MigrationPackage } from '@riao/dbal';
 
 import {
 	CreateFido2ChallengesTableMigration,
 	CreateFido2CredentialsTableMigration,
 } from './migrations';
 
-export class AuthenticationFido2Migrations extends AuthMigrations {
+export class AuthenticationFido2Migrations extends MigrationPackage {
 	override package = '@riao/authn-fido2';
 	override name = '@riao/authn-fido2';
 
@@ -15,7 +14,6 @@ export class AuthenticationFido2Migrations extends AuthMigrations {
 		Record<string, typeof Migration<any>>
 		> {
 		return {
-			...(await super.getMigrations()),
 			'create-fido2-credentials-table':
 				CreateFido2CredentialsTableMigration,
 			'create-fido2-challenges-table':
