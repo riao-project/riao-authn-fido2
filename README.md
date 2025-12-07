@@ -1,4 +1,4 @@
-# {{project-name}} - Readme
+# auth-template - Readme
 
 ## Contributing & Development
 

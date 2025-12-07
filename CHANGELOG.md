@@ -1,1 +1,1 @@
-# {{project-name}} - Changelog
+# auth-template - Changelog
