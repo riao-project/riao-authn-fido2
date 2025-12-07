@@ -349,16 +349,11 @@ export class Fido2Authentication<
 
 			// Parse transports from stored JSON string
 			if (cred.transports) {
-				try {
-					const parsed = JSON.parse(cred.transports);
-					transports = Array.isArray(parsed) ? parsed : [];
-				}
-				catch (error) {
-					// Default to internal for platform authenticators
-					transports = ['internal'];
-				}
+				const parsed = JSON.parse(cred.transports);
+				transports = Array.isArray(parsed) ? parsed : [];
 			}
-			else {
+
+			if (!transports || transports.length === 0) {
 				// If no transports stored, use common transports
 				transports = ['internal', 'hybrid'];
 			}
