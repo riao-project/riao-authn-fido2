@@ -150,7 +150,7 @@ const principal = await auth.authenticate({ response: assertion, principalId: us
 ### Basic Setup
 
 ```typescript
-import { Fido2Authentication } from './authentication-fido2';
+import { Fido2Authentication } from '@riao/authn-fido2';
 
 // Configure for your application
 const fido2Auth = new Fido2Authentication({

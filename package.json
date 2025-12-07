@@ -1,7 +1,7 @@
 {
-	"name": "authn-fido2",
+	"name": "@riao/authn-fido2",
 	"version": "1.0.0",
-	"description": "authn-fido2",
+	"description": "Riao FIDO2",
 	"private": "true",
 	"typescript-template": {
 		"base": "1.0.1",
@@ -50,13 +50,22 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/authn-fido2/authn-fido2.git"
+		"url": "git+https://github.com/riao-project/authn-fido2.git"
 	},
 	"author": "authn-fido2",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://github.com/authn-fido2/authn-fido2/issues"
+		"url": "https://github.com/riao-project/authn-fido2/issues"
 	},
-	"homepage": "https://github.com/authn-fido2/authn-fido2#readme",
-	"keywords": []
+	"homepage": "https://github.com/riao-project/authn-fido2#readme",
+	"keywords": [
+		"riao",
+		"fido2",
+		"webauthn",
+		"authentication",
+		"authn",
+		"security",
+		"iam",
+		"typescript"
+	]
 }
