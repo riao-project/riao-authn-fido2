@@ -1,8 +1,8 @@
-import { createDatabase, runMigrations } from '../../../../test/database';
+import { createDatabase, runMigrations } from '../../test/database';
 import { createServer } from './server';
 import { Auth } from './auth';
 import { ExampleAuthMigrations } from './auth-migrations';
-import { maindb } from '../../../../database/main';
+import { maindb } from '../../database/main';
 import { AuthMigrations } from '@riao/iam/auth/auth-migrations';
 
 // Configuration

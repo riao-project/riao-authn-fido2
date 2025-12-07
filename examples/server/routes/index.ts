@@ -10,7 +10,7 @@ export function createMainRoutes(): Router {
 		// Try to find the HTML file in the source directory structure
 		const possiblePaths = [
 			path.join(__dirname, '../public/index.html'),
-			path.join(__dirname, '../../../../public/index.html'),
+			path.join(__dirname, '../../public/index.html'),
 			path.join(
 				process.cwd(),
 				'examples/authentication/fido2/server/public/index.html'
