@@ -47,3 +47,6 @@ dist/
 
 # Environment Variables
 .env
+
+# Database
+database/**/.schema/*
