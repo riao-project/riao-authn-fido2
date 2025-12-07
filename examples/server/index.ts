@@ -3,6 +3,7 @@ import { createServer } from './server';
 import { Auth } from './auth';
 import { ExampleAuthMigrations } from './auth-migrations';
 import { maindb } from '../../../../database/main';
+import { AuthMigrations } from '@riao/iam/auth/auth-migrations';
 
 // Configuration
 const PORT = process.env['PORT'] || 3000;
@@ -25,6 +26,7 @@ const userRepo = fido2Auth.principalRepo;
 async function initializeDatabase() {
 	await maindb.init();
 	await db.init();
+	await runMigrations(db, new AuthMigrations());
 	await runMigrations(db, new ExampleAuthMigrations());
 }
 
