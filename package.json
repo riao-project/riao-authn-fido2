@@ -1,6 +1,6 @@
 {
 	"name": "@riao/authn-fido2",
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"description": "Riao FIDO2",
 	"private": "true",
 	"typescript-template": {
