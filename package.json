@@ -23,7 +23,7 @@
 	},
 	"dependencies": {
 		"@riao/dbal": "^3.8.0",
-		"@riao/iam": "^3.0.0",
+		"@riao/iam": "^4.0.0",
 		"@simplewebauthn/server": "^13.2.2"
 	},
 	"devDependencies": {
