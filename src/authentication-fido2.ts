@@ -149,6 +149,10 @@ export class Fido2Authentication<
 		}
 
 		const storedChallenge = challengesRaw[0];
+		const expires = new Date(storedChallenge.expires).getTime();
+		if (!Number.isFinite(expires) || expires <= Date.now()) {
+			return { verified: false };
+		}
 		const opts: VerifyRegistrationResponseOpts = {
 			response,
 			expectedChallenge: storedChallenge.id,
@@ -156,7 +160,7 @@ export class Fido2Authentication<
 			expectedRPID: this.rpID,
 		};
 
-		const verification = await verifyRegistrationResponse(opts);
+		const verification = await this.verifyRegistrationResponse(opts);
 
 		if (verification.verified && verification.registrationInfo) {
 			// Store the credential in database
@@ -277,13 +281,20 @@ export class Fido2Authentication<
 		}
 
 		const storedChallenge = challengesRaw[0];
+		const expires = new Date(storedChallenge.expires).getTime();
+		if (!Number.isFinite(expires) || expires <= Date.now()) {
+			return null;
+		}
 
 		// Get the authenticator credential
 		const authenticator = await this.getAuthenticatorByCredentialID(
 			response.id
 		);
 
-		if (authenticator === null) {
+		if (
+			authenticator === null ||
+			String(authenticator.principal_id) !== String(principalId)
+		) {
 			return null;
 		}
 
@@ -300,7 +311,7 @@ export class Fido2Authentication<
 			},
 		};
 
-		const verification = await verifyAuthenticationResponse(opts);
+		const verification = await this.verifyAuthenticationResponse(opts);
 
 		if (!verification.verified) {
 			return null;
@@ -326,6 +337,18 @@ export class Fido2Authentication<
 				id: principalId,
 			},
 		});
+	}
+
+	protected async verifyAuthenticationResponse(
+		options: VerifyAuthenticationResponseOpts
+	): ReturnType<typeof verifyAuthenticationResponse> {
+		return verifyAuthenticationResponse(options);
+	}
+
+	protected async verifyRegistrationResponse(
+		options: VerifyRegistrationResponseOpts
+	): ReturnType<typeof verifyRegistrationResponse> {
+		return verifyRegistrationResponse(options);
 	}
 
 	protected async getExistingCredentials(principalId: string): Promise<
