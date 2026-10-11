@@ -171,6 +171,22 @@ const fido2Auth = new Fido2Authentication({
 
 ## Security Considerations
 
+### Atomic authentication challenge consumption
+
+Run the package migrations before deployment. The `add-challenge-consumption-id`
+migration adds a nullable receipt column to `iam_fido2_challenges`, preserving
+existing unused challenges.
+
+After cryptographic verification, authentication conditionally claims the exact
+unused, unexpired challenge with a unique receipt. Only the receipt holder updates
+the credential counter and continues authentication; replay returns `null`.
+Challenges that expire during verification cannot be consumed. A counter-update
+failure leaves the challenge consumed to prevent replay.
+
+This protects authentication challenge consumption only; registration consumption
+and credential-owner validation are separate concerns. It uses ordinary atomic
+database updates, not driver-specific affected-row counts.
+
 ### Challenge Management
 
 - **Expiration**: Challenges automatically expire after 5 minutes
