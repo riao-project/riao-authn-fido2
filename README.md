@@ -1,6 +1,6 @@
 # @riao/authn-fido2
 
-This implementation provides complete FIDO2/WebAuthn authentication support using the SimpleWebAuthn library, with database persistence and full lifecycle management.
+This implementation provides FIDO2/WebAuthn registration and authentication using the SimpleWebAuthn library, with database-backed credential and challenge storage.
 
 ## Table of Contents
 
@@ -25,9 +25,8 @@ This FIDO2 implementation provides passwordless authentication using WebAuthn st
 ### Key Features
 
 - ✅ Complete WebAuthn registration and authentication flows
-- ✅ Database persistence with proper challenge lifecycle management
+- ✅ Database-backed challenge and credential storage
 - ✅ Multi-credential support per principal
-- ✅ Automatic challenge expiration and cleanup
 - ✅ Integration with riao framework
 - ✅ Type-safe TypeScript implementation
 - ✅ Comprehensive test coverage
@@ -58,7 +57,7 @@ export default AuthenticationFido2Migrations;
 1. **Fido2Authentication Class**: Main authentication handler
 2. **Database Schema**: Two tables for challenges and credentials  
 3. **SimpleWebAuthn Integration**: Industry-standard WebAuthn library
-4. **Challenge Management**: Temporary challenge storage and lifecycle
+4. **Challenge Management**: Challenge storage and used-state updates
 5. **Credential Repository**: Persistent authenticator credential storage
 
 ## Database Schema
@@ -67,7 +66,13 @@ The implementation uses two tables for managing the FIDO2 authentication lifecyc
 
 ### fido2_challenges
 
-Stores temporary challenges during registration/authentication flows. Challenges auto-expire after 5 minutes, and are single-use only  
+Stores challenge records during registration/authentication flows. Generated
+challenges include an `expires` timestamp five minutes after creation, but the
+driver does not check that timestamp during verification or automatically
+remove expired rows. Applications must enforce any required challenge-expiry
+policy and clean up old rows. Challenges are marked used after successful
+verification, but concurrent verification attempts are not atomically
+serialized.
 
 ### fido2_credentials
 
@@ -136,14 +141,54 @@ Authenticate a user using an existing credential (passwordless login)
 
 ```typescript
 // 1. Server generates challenge  
-const options = await auth.generateAuthenticationOptions(userID); // or no param
+const options = await auth.generateAuthenticationOptions(userID);
 
 // 2. Client signs challenge (browser WebAuthn API)
 const assertion = await navigator.credentials.get({ publicKey: options });
 
 // 3. Server verifies signature
 const principal = await auth.authenticate({ response: assertion, principalId: userID });
+if (principal !== null) {
+  // Create your application's session for principal.id.
+} else {
+  // Return a generic login rejection, including blocked attempts.
+}
 ```
+
+### Version 3 Authentication Contract
+
+Requires `@riao/iam` 5. Options extend IAM's `AuthenticationOptions`, including
+`authenticationProtection`. `authenticate()` runs `beforeAttempt`, then
+`onFailure` for ordinary invalid credentials or `onSuccess` only for a verified
+active principal. Denied attempts return `null` without failure/success hooks.
+Missing or used challenges, unknown credentials, inactive
+principals, verifier `verified: false`, and known SimpleWebAuthn assertion
+validation errors return `null`. Failure/success subjects are principal
+IDs, and assertion secrets are never passed to the protection hooks.
+
+IAM 5's lock entry omits registry `resolved`/`integrity` until publication.
+Regenerate with `npm install --package-lock-only` after release to record
+registry integrity.
+
+SimpleWebAuthn 13 reports several validation failures as plain `Error`s. The
+driver recognizes a narrow, tested set of its messages; unknown verifier
+exceptions (including crypto/service outages) propagate, as do database and
+protection-hook exceptions. Malformed client JSON is rejected separately at
+the untrusted input boundary. Do not count operational errors as bad credentials.
+
+Counter persistence errors propagate without failure/success hooks.
+Success-hook outages likewise propagate
+after persistence, without reclassifying the attempt as invalid credentials.
+Supply a known principal ID when
+generating options: options generated without one have no stored challenge
+and cannot currently complete this principal-bound authentication flow.
+
+Authentication returns a trusted principal, not an application session or
+bearer token. Create an application-owned session only on non-null success.
+Use generic rejection responses at HTTP boundaries and handle operational
+errors separately (for example HTTP 503). `null` does not carry a retry delay;
+exchange APIs that throw IAM's `AuthenticationBlockedError` may map its
+optional `retryAfterSeconds` to `Retry-After` and HTTP 429.
 
 ## Usage Examples
 
@@ -173,8 +218,10 @@ const fido2Auth = new Fido2Authentication({
 
 ### Challenge Management
 
-- **Expiration**: Challenges automatically expire after 5 minutes
-- **Single Use**: Each challenge can only be used once
+- **Expiration metadata**: Challenges are assigned an `expires` timestamp five
+  minutes after creation, but the driver does not enforce it
+- **Used state**: Successfully verified challenges are marked used; the driver
+  does not guarantee atomic single-use behavior for concurrent attempts
 - **Cryptographic Security**: Challenges are generated by SimpleWebAuthn with proper entropy
 
 ### Credential Storage
@@ -194,7 +241,7 @@ const fido2Auth = new Fido2Authentication({
 1. **Always use HTTPS** in production environments
 2. **Validate origins** strictly to prevent phishing attacks
 3. **Implement rate limiting** on authentication endpoints
-4. **Clean up expired challenges** regularly (though this happens automatically)
+4. **Enforce challenge expiry and cleanup** in your application if required
 5. **Use secure session management** after successful authentication
 6. **Implement proper error handling** without revealing sensitive information
 

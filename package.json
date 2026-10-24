@@ -1,6 +1,6 @@
 {
 	"name": "@riao/authn-fido2",
-	"version": "2.0.0",
+	"version": "3.0.0",
 	"description": "Riao FIDO2",
 	"private": "true",
 	"typescript-template": {
@@ -23,7 +23,7 @@
 	},
 	"dependencies": {
 		"@riao/dbal": "^3.8.0",
-		"@riao/iam": "^4.0.0",
+		"@riao/iam": "^5.0.0",
 		"@simplewebauthn/server": "^13.2.2"
 	},
 	"devDependencies": {
