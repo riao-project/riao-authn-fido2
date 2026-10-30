@@ -12,9 +12,13 @@ import {
 
 describe('FIDO2 challenge expiry', () => {
 	const principal: Principal = {
-		id: '7', login: 'user@example.com', type: 'user', name: 'User',
+		id: '7',
+		login: 'user@example.com',
+		type: 'user',
+		name: 'User',
 		create_timestamp: new Date(),
 	};
+
 	const response: AuthenticationResponseJSON = {
 		id: 'credential', rawId: 'credential', type: 'public-key',
 		clientExtensionResults: {},
@@ -25,6 +29,7 @@ describe('FIDO2 challenge expiry', () => {
 			authenticatorData: 'auth', signature: 'sig',
 		},
 	};
+
 	const registration: RegistrationResponseJSON = {
 		id: 'credential', rawId: 'credential', type: 'public-key',
 		clientExtensionResults: {},
@@ -35,12 +40,14 @@ describe('FIDO2 challenge expiry', () => {
 			attestationObject: 'attestation',
 		},
 	};
+
 	type ChallengeQuery = {
 		where: Pick<
 			StoredChallenge,
 			'id' | 'principal_id' | 'challenge_type' | 'used'
 		>;
 	};
+
 	let auth: Fido2Authentication<Principal>;
 	let challenge: StoredChallenge;
 	let olderChallenge: StoredChallenge;
