@@ -52,6 +52,38 @@ export interface Fido2AuthenticationOptions extends AuthOptions {
 	origin: string;
 }
 
+function getResponseChallenge(
+	response: RegistrationResponseJSON | AuthenticationResponseJSON
+): string | null {
+	let clientData: unknown;
+	try {
+		clientData = JSON.parse(
+			Buffer.from(response.response.clientDataJSON, 'base64url').toString(
+				'utf8'
+			)
+		);
+	}
+	catch (error) {
+		if (error instanceof SyntaxError) {
+			return null;
+		}
+
+		throw error;
+	}
+
+	if (
+		typeof clientData !== 'object' ||
+		clientData === null ||
+		!('challenge' in clientData) ||
+		typeof clientData.challenge !== 'string' ||
+		clientData.challenge.length === 0
+	) {
+		return null;
+	}
+
+	return clientData.challenge;
+}
+
 export class Fido2Authentication<
 	TPrincipal extends Principal,
 > extends Authentication<TPrincipal> {
@@ -136,14 +168,19 @@ export class Fido2Authentication<
 			throw new Error('Principal must have an ID');
 		}
 
+		const responseChallenge = getResponseChallenge(response);
+		if (responseChallenge === null) {
+			return { verified: false };
+		}
+
 		// Find the challenge from database
 		const challengesRaw = await this.challengeRepo.find({
 			where: {
+				id: responseChallenge,
 				principal_id: principal.id,
 				challenge_type: 'registration',
 				used: false,
 			},
-			limit: 1,
 		});
 
 		if (challengesRaw.length === 0) {
@@ -151,6 +188,10 @@ export class Fido2Authentication<
 		}
 
 		const storedChallenge = challengesRaw[0];
+		const expires = new Date(storedChallenge.expires).getTime();
+		if (!Number.isFinite(expires) || expires <= Date.now()) {
+			return { verified: false };
+		}
 		const opts: VerifyRegistrationResponseOpts = {
 			response,
 			expectedChallenge: storedChallenge.id,
@@ -158,7 +199,7 @@ export class Fido2Authentication<
 			expectedRPID: this.rpID,
 		};
 
-		const verification = await verifyRegistrationResponse(opts);
+		const verification = await this.verifyRegistrationResponse(opts);
 
 		if (verification.verified && verification.registrationInfo) {
 			// Store the credential in database
@@ -264,14 +305,19 @@ export class Fido2Authentication<
 	): Promise<TPrincipal | null> {
 		const { response, principalId } = credentials;
 
+		const responseChallenge = getResponseChallenge(response);
+		if (responseChallenge === null) {
+			return null;
+		}
+
 		// Find the challenge from database
 		const challengesRaw = await this.challengeRepo.find({
 			where: {
+				id: responseChallenge,
 				principal_id: principalId,
 				challenge_type: 'authentication',
 				used: false,
 			},
-			limit: 1,
 		});
 
 		if (challengesRaw.length === 0) {
@@ -279,13 +325,20 @@ export class Fido2Authentication<
 		}
 
 		const storedChallenge = challengesRaw[0];
+		const expires = new Date(storedChallenge.expires).getTime();
+		if (!Number.isFinite(expires) || expires <= Date.now()) {
+			return null;
+		}
 
 		// Get the authenticator credential
 		const authenticator = await this.getAuthenticatorByCredentialID(
 			response.id
 		);
 
-		if (authenticator === null) {
+		if (
+			authenticator === null ||
+			String(authenticator.principal_id) !== String(principalId)
+		) {
 			return null;
 		}
 
@@ -349,6 +402,12 @@ export class Fido2Authentication<
 		options: VerifyAuthenticationResponseOpts
 	): ReturnType<typeof verifyAuthenticationResponse> {
 		return verifyAuthenticationResponse(options);
+	}
+
+	protected async verifyRegistrationResponse(
+		options: VerifyRegistrationResponseOpts
+	): ReturnType<typeof verifyRegistrationResponse> {
+		return verifyRegistrationResponse(options);
 	}
 
 	protected async getExistingCredentials(principalId: string): Promise<

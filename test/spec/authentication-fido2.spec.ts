@@ -279,34 +279,46 @@ describe('Authentication - FIDO2', () => {
 		});
 
 		describe('Error Handling', () => {
-			// TODO:
-			xit('should handle expired challenges gracefully', async () => {
-				// Generate options to create a challenge
-				await auth.generateRegistrationOptions(testPrincipal);
+			it('rejects an expired registration challenge before verification',
+				async () => {
+					const expiredPrincipal = await createTestPrincipal(
+						'expired-registration-challenge-test'
+					);
+					const options = await auth.generateRegistrationOptions(
+						expiredPrincipal
+					);
+					const challengeId = options.challenge;
+					const [storedChallenge] = await verifyChallengeState(
+						expiredPrincipal.id!, 'registration'
+					);
+					expect(storedChallenge.id).toBe(challengeId);
 
-				// Manually expire the challenge
-				const pastDate = new Date(Date.now() - 1000 * 60 * 60);
-				await auth['challengeRepo'].update({
-					set: { expires: pastDate },
-					where: {
-						principal_id: testPrincipal.id,
-						challenge_type: 'registration',
-					},
+					const expiredAt = new Date(Date.now() - 1000 * 60 * 60);
+					await auth['challengeRepo'].update({
+						set: { expires: expiredAt },
+						where: { id: challengeId },
+					});
+
+					const mockResponse = {
+						id: 'expired-test-credential',
+						rawId: 'expired-test-credential',
+						response: {
+							attestationObject: 'mock-attestation-object',
+							clientDataJSON: Buffer.from(JSON.stringify({
+								type: 'webauthn.create',
+								challenge: options.challenge,
+								origin: 'http://localhost',
+							})).toString('base64'),
+						},
+						type: 'public-key' as const,
+						clientExtensionResults: {},
+					};
+
+					const result = await auth.verifyRegistration(
+						expiredPrincipal, mockResponse
+					);
+					expect(result).toEqual({ verified: false });
 				});
-
-				// Attempt verification with expired challenge
-				// Create mock registration response using helper
-				const mockResponse = createRegistrationResponse(
-					'expired-challenge',
-					'test-cred'
-				);
-
-				const result = await auth.verifyRegistration(
-					testPrincipal,
-					mockResponse
-				);
-				expect(result.verified).toBe(false);
-			});
 
 			it('should handle authentication without credentials', async () => {
 				// Attempt authentication with no stored credentials
@@ -421,34 +433,35 @@ describe('Authentication - FIDO2', () => {
 			await auth.generateRegistrationOptions(testPrincipal);
 		});
 
-		it('should throw for invalid challenge', async () => {
-			// Create a dedicated test principal for this test
-			const testAcc = await createTestPrincipal(
-				'verify-invalid-challenge-test'
-			);
+		it('should return false if the response challenge is not stored',
+			async () => {
+				// Create a dedicated test principal for this test
+				const testAcc = await createTestPrincipal(
+					'verify-invalid-challenge-test'
+				);
 
-			// Generate registration options to create a challenge
-			await auth.generateRegistrationOptions(testAcc);
+				// Generate registration options to create a challenge
+				await auth.generateRegistrationOptions(testAcc);
 
-			// Create mock registration response using helper
-			const mockResponse = createRegistrationResponse(
-				'mock-challenge-invalid',
-				'mock-credential-invalid-id'
-			);
+				// Create mock registration response using helper
+				const mockResponse = createRegistrationResponse(
+					'mock-challenge-invalid',
+					'mock-credential-invalid-id'
+				);
 
-			// Corrupt the challenge by updating it
-			await auth['challengeRepo'].update({
-				set: { id: 'invalid-challenge-' + Date.now() },
-				where: {
-					principal_id: testAcc.id,
-					challenge_type: 'registration',
-				},
+				// Corrupt the challenge by updating it
+				await auth['challengeRepo'].update({
+					set: { id: 'invalid-challenge-' + Date.now() },
+					where: {
+						principal_id: testAcc.id,
+						challenge_type: 'registration',
+					},
+				});
+
+				await expectAsync(
+					auth.verifyRegistration(testAcc, mockResponse)
+				).toBeResolvedTo({ verified: false });
 			});
-
-			await expectAsync(
-				auth.verifyRegistration(testAcc, mockResponse)
-			).toBeRejected();
-		});
 
 		it('should return false if no challenge exists', async () => {
 			// Delete the challenge

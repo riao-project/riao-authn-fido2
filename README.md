@@ -171,6 +171,14 @@ const fido2Auth = new Fido2Authentication({
 
 ## Security Considerations
 
+### Credential ownership
+
+Authentication verifies that the credential belongs to the requested principal before cryptographic verification or database mutations.
+
+### Challenge Expiry
+
+Authentication and registration reject challenges if the expiry timestamp is invalid or at/before the current time before cryptographic verification. Authentication returns `null`; registration returns `{ verified: false }`.
+
 ### Atomic authentication challenge consumption
 
 After cryptographic verification, authentication conditionally claims the exact unused, unexpired challenge with a unique receipt.

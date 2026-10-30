@@ -36,7 +36,9 @@ describe('Atomic FIDO2 authentication challenge consumption (database)', () => {
 		type: 'public-key',
 		clientExtensionResults: {},
 		response: {
-			clientDataJSON: 'data',
+			clientDataJSON: Buffer.from(JSON.stringify({
+				challenge: 'atomic-consumption-challenge',
+			})).toString('base64url'),
 			authenticatorData: 'auth',
 			signature: 'sig',
 		},

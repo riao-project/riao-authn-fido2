@@ -8,9 +8,6 @@ import {
 import {
 	Fido2Authentication, StoredChallenge,
 } from '../../src/authentication-fido2';
-// eslint-disable-next-line max-len
-import { AuthenticationFido2Migrations } from '../../src/authentication-fido2-migrations';
-
 describe('Atomic FIDO2 authentication challenge consumption', () => {
 	const principal: Principal = {
 		id: '7', login: 'user@example.com', type: 'user', name: 'User',
@@ -20,7 +17,10 @@ describe('Atomic FIDO2 authentication challenge consumption', () => {
 		id: 'credential', rawId: 'credential', type: 'public-key',
 		clientExtensionResults: {},
 		response: {
-			clientDataJSON: 'data', authenticatorData: 'auth', signature: 'sig',
+			clientDataJSON: Buffer.from(JSON.stringify({
+				challenge: 'challenge',
+			})).toString('base64url'),
+			authenticatorData: 'auth', signature: 'sig',
 		},
 	};
 	type Verification = Awaited<
