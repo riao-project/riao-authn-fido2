@@ -56,9 +56,9 @@ function getResponseChallenge(
 	let clientData: unknown;
 	try {
 		clientData = JSON.parse(
-			Buffer.from(
-				response.response.clientDataJSON, 'base64url'
-			).toString('utf8')
+			Buffer.from(response.response.clientDataJSON, 'base64url').toString(
+				'utf8'
+			)
 		);
 	}
 	catch (error) {
