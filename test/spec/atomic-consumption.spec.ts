@@ -10,8 +10,6 @@ import {
 } from '../../src/authentication-fido2';
 // eslint-disable-next-line max-len
 import { AuthenticationFido2Migrations } from '../../src/authentication-fido2-migrations';
-// eslint-disable-next-line max-len
-import { AddChallengeConsumptionId } from '../../src/migrations/003-add-challenge-consumption-id';
 
 describe('Atomic FIDO2 authentication challenge consumption', () => {
 	const principal: Principal = {
@@ -191,32 +189,5 @@ describe('Atomic FIDO2 authentication challenge consumption', () => {
 			.toBeRejectedWithError('counter update failed');
 		expect(row.used).toBeTrue();
 		expect(await authenticate()).toBeNull();
-	});
-
-	it('registers a reversible nullable receipt migration', async () => {
-		const migrations = new AuthenticationFido2Migrations();
-		const registered = await migrations.getMigrations();
-		expect(registered['add-challenge-consumption-id'])
-			.toBe(AddChallengeConsumptionId);
-		const ddl = jasmine.createSpyObj('ddl', ['addColumns', 'dropColumn']);
-		ddl.addColumns.and.resolveTo();
-		ddl.dropColumn.and.resolveTo();
-		const migration = Object.create(
-			AddChallengeConsumptionId.prototype
-		) as AddChallengeConsumptionId;
-		Object.assign(migration, { ddl });
-		await migration.up();
-		expect(ddl.addColumns).toHaveBeenCalledWith({
-			table: 'iam_fido2_challenges',
-			columns: [jasmine.objectContaining({
-				name: 'consumption_id', length: 64,
-			})],
-		});
-		const column = ddl.addColumns.calls.mostRecent().args[0].columns[0];
-		expect(column.required).not.toBeTrue();
-		await migration.down();
-		expect(ddl.dropColumn).toHaveBeenCalledWith({
-			table: 'iam_fido2_challenges', column: 'consumption_id',
-		});
 	});
 });

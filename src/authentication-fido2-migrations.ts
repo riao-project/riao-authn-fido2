@@ -3,7 +3,6 @@ import { Migration, MigrationPackage } from '@riao/dbal';
 import {
 	CreateFido2ChallengesTableMigration,
 	CreateFido2CredentialsTableMigration,
-	AddChallengeConsumptionId,
 } from './migrations';
 
 export class AuthenticationFido2Migrations extends MigrationPackage {
@@ -19,7 +18,6 @@ export class AuthenticationFido2Migrations extends MigrationPackage {
 				CreateFido2CredentialsTableMigration,
 			'create-fido2-challenges-table':
 				CreateFido2ChallengesTableMigration,
-			'add-challenge-consumption-id': AddChallengeConsumptionId,
 		};
 	}
 }
