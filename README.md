@@ -1,6 +1,6 @@
 # @riao/authn-fido2
 
-This implementation provides complete FIDO2/WebAuthn authentication support using the SimpleWebAuthn library, with database persistence and full lifecycle management.
+This implementation provides FIDO2/WebAuthn registration and authentication using the SimpleWebAuthn library, with database-backed credential and challenge storage.
 
 ## Table of Contents
 
@@ -25,9 +25,8 @@ This FIDO2 implementation provides passwordless authentication using WebAuthn st
 ### Key Features
 
 - ✅ Complete WebAuthn registration and authentication flows
-- ✅ Database persistence with proper challenge lifecycle management
+- ✅ Database-backed challenge and credential storage
 - ✅ Multi-credential support per principal
-- ✅ Automatic challenge expiration and cleanup
 - ✅ Integration with riao framework
 - ✅ Type-safe TypeScript implementation
 - ✅ Comprehensive test coverage
@@ -58,7 +57,7 @@ export default AuthenticationFido2Migrations;
 1. **Fido2Authentication Class**: Main authentication handler
 2. **Database Schema**: Two tables for challenges and credentials  
 3. **SimpleWebAuthn Integration**: Industry-standard WebAuthn library
-4. **Challenge Management**: Temporary challenge storage and lifecycle
+4. **Challenge Management**: Challenge storage and used-state updates
 5. **Credential Repository**: Persistent authenticator credential storage
 
 ## Database Schema
@@ -67,7 +66,7 @@ The implementation uses two tables for managing the FIDO2 authentication lifecyc
 
 ### fido2_challenges
 
-Stores temporary challenges during registration/authentication flows. Challenges auto-expire after 5 minutes, and are single-use only  
+Stores temporary challenges during registration/authentication flows. Challenges auto-expire after 5 minutes, and are single-use only 
 
 ### fido2_credentials
 
@@ -136,13 +135,19 @@ Authenticate a user using an existing credential (passwordless login)
 
 ```typescript
 // 1. Server generates challenge  
-const options = await auth.generateAuthenticationOptions(userID); // or no param
+const options = await auth.generateAuthenticationOptions(userID);
 
 // 2. Client signs challenge (browser WebAuthn API)
 const assertion = await navigator.credentials.get({ publicKey: options });
 
 // 3. Server verifies signature
 const principal = await auth.authenticate({ response: assertion, principalId: userID });
+if (principal !== null) {
+  // Create your application's session for principal.id.
+}
+else {
+  // Return a generic login rejection, including blocked attempts.
+}
 ```
 
 ## Usage Examples
@@ -206,7 +211,7 @@ After cryptographic verification, authentication conditionally claims the exact 
 1. **Always use HTTPS** in production environments
 2. **Validate origins** strictly to prevent phishing attacks
 3. **Implement rate limiting** on authentication endpoints
-4. **Clean up expired challenges** regularly (though this happens automatically)
+4. **Expired challenge cleanup** in your application
 5. **Use secure session management** after successful authentication
 6. **Implement proper error handling** without revealing sensitive information
 

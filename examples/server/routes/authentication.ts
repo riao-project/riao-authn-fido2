@@ -72,6 +72,8 @@ export function createAuthenticationRoutes(
 			});
 
 			if (user) {
+				// Issue your application-owned session for user.id here.
+				// A verified WebAuthn assertion is not a session bearer token.
 				return res.json({
 					verified: true,
 					user: {
@@ -83,7 +85,7 @@ export function createAuthenticationRoutes(
 				});
 			}
 			else {
-				return res.status(400).json({
+				return res.status(401).json({
 					verified: false,
 					error: 'Authentication verification failed',
 				});
@@ -92,7 +94,7 @@ export function createAuthenticationRoutes(
 		catch (error) {
 			// eslint-disable-next-line no-console
 			console.error('Authentication finish error:', error);
-			return res.status(500).json({
+			return res.status(503).json({
 				verified: false,
 				error: 'Authentication verification failed',
 			});

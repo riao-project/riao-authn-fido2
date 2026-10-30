@@ -1,6 +1,6 @@
 import { DatabaseRecordId, QueryRepository, gt } from '@riao/dbal';
 import { Principal, Authentication } from '@riao/iam';
-import { AuthOptions } from '@riao/iam/auth/auth';
+import { AuthenticationOptions } from '@riao/iam/authentication';
 import { Database } from '@riao/dbal';
 import { randomUUID } from 'crypto';
 import {
@@ -18,6 +18,10 @@ import {
 	type PublicKeyCredentialRequestOptionsJSON,
 	type AuthenticatorTransportFuture,
 } from '@simplewebauthn/server';
+import {
+	hasValidClientDataJSON,
+	isAuthenticationVerificationError,
+} from './verification-error';
 
 export interface StoredChallenge {
 	id: string;
@@ -45,7 +49,7 @@ export interface Fido2Credentials {
 	principalId: DatabaseRecordId;
 }
 
-export interface Fido2AuthenticationOptions extends AuthOptions {
+export interface Fido2AuthenticationOptions extends AuthenticationOptions {
 	db: Database;
 	rpName: string;
 	rpID: string;
@@ -304,10 +308,35 @@ export class Fido2Authentication<
 		credentials: Fido2Credentials
 	): Promise<TPrincipal | null> {
 		const { response, principalId } = credentials;
+		const attempt = { scheme: 'fido2', subject: String(principalId) };
+		const protection = await this.beforeAuthenticationAttempt(attempt);
+		if (!protection.allowed) {
+			return null;
+		}
+
+		const reject = async (): Promise<null> => {
+			await this.recordAuthenticationFailure(attempt);
+			return null;
+		};
+
+		const principal = await this.findActivePrincipal({
+			where: <TPrincipal>{ id: principalId },
+		});
+		if (!principal) {
+			return reject();
+		}
+		if (
+			!response ||
+			typeof response.id !== 'string' ||
+			!response.id ||
+			!hasValidClientDataJSON(response.response?.clientDataJSON)
+		) {
+			return reject();
+		}
 
 		const responseChallenge = getResponseChallenge(response);
 		if (responseChallenge === null) {
-			return null;
+			return reject();
 		}
 
 		// Find the challenge from database
@@ -321,13 +350,13 @@ export class Fido2Authentication<
 		});
 
 		if (challengesRaw.length === 0) {
-			return null;
+			return reject();
 		}
 
 		const storedChallenge = challengesRaw[0];
 		const expires = new Date(storedChallenge.expires).getTime();
 		if (!Number.isFinite(expires) || expires <= Date.now()) {
-			return null;
+			return reject();
 		}
 
 		// Get the authenticator credential
@@ -339,7 +368,7 @@ export class Fido2Authentication<
 			authenticator === null ||
 			String(authenticator.principal_id) !== String(principalId)
 		) {
-			return null;
+			return reject();
 		}
 
 		const opts: VerifyAuthenticationResponseOpts = {
@@ -355,10 +384,21 @@ export class Fido2Authentication<
 			},
 		};
 
-		const verification = await this.verifyAuthenticationResponse(opts);
+		let verification: Awaited<
+			ReturnType<typeof verifyAuthenticationResponse>
+		>;
+		try {
+			verification = await this.verifyAuthenticationResponse(opts);
+		}
+		catch (error) {
+			if (!isAuthenticationVerificationError(error)) {
+				throw error;
+			}
+			return reject();
+		}
 
 		if (!verification.verified) {
-			return null;
+			return reject();
 		}
 
 		// Only the conditional-write winner may update the counter and succeed.
@@ -379,7 +419,7 @@ export class Fido2Authentication<
 		});
 
 		if (!claimed) {
-			return null;
+			return reject();
 		}
 
 		// Update counter in database
@@ -390,12 +430,8 @@ export class Fido2Authentication<
 			where: { id: authenticator.id },
 		});
 
-		// Retrieve and return the principal
-		return await this.findActivePrincipal({
-			where: <TPrincipal>{
-				id: principalId,
-			},
-		});
+		await this.recordAuthenticationSuccess(attempt);
+		return principal;
 	}
 
 	protected async verifyAuthenticationResponse(
