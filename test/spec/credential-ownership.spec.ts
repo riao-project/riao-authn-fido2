@@ -18,7 +18,10 @@ describe('FIDO2 credential ownership', () => {
 		id: 'credential', rawId: 'credential', type: 'public-key',
 		clientExtensionResults: {},
 		response: {
-			clientDataJSON: 'data', authenticatorData: 'auth', signature: 'sig',
+			clientDataJSON: Buffer.from(JSON.stringify({
+				challenge: 'challenge',
+			})).toString('base64url'),
+			authenticatorData: 'auth', signature: 'sig',
 		},
 	};
 	type Verification = Awaited<

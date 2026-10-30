@@ -433,34 +433,35 @@ describe('Authentication - FIDO2', () => {
 			await auth.generateRegistrationOptions(testPrincipal);
 		});
 
-		it('should throw for invalid challenge', async () => {
-			// Create a dedicated test principal for this test
-			const testAcc = await createTestPrincipal(
-				'verify-invalid-challenge-test'
-			);
+		it('should return false if the response challenge is not stored',
+			async () => {
+				// Create a dedicated test principal for this test
+				const testAcc = await createTestPrincipal(
+					'verify-invalid-challenge-test'
+				);
 
-			// Generate registration options to create a challenge
-			await auth.generateRegistrationOptions(testAcc);
+				// Generate registration options to create a challenge
+				await auth.generateRegistrationOptions(testAcc);
 
-			// Create mock registration response using helper
-			const mockResponse = createRegistrationResponse(
-				'mock-challenge-invalid',
-				'mock-credential-invalid-id'
-			);
+				// Create mock registration response using helper
+				const mockResponse = createRegistrationResponse(
+					'mock-challenge-invalid',
+					'mock-credential-invalid-id'
+				);
 
-			// Corrupt the challenge by updating it
-			await auth['challengeRepo'].update({
-				set: { id: 'invalid-challenge-' + Date.now() },
-				where: {
-					principal_id: testAcc.id,
-					challenge_type: 'registration',
-				},
+				// Corrupt the challenge by updating it
+				await auth['challengeRepo'].update({
+					set: { id: 'invalid-challenge-' + Date.now() },
+					where: {
+						principal_id: testAcc.id,
+						challenge_type: 'registration',
+					},
+				});
+
+				await expectAsync(
+					auth.verifyRegistration(testAcc, mockResponse)
+				).toBeResolvedTo({ verified: false });
 			});
-
-			await expectAsync(
-				auth.verifyRegistration(testAcc, mockResponse)
-			).toBeRejected();
-		});
 
 		it('should return false if no challenge exists', async () => {
 			// Delete the challenge

@@ -50,6 +50,38 @@ export interface Fido2AuthenticationOptions extends AuthOptions {
 	origin: string;
 }
 
+function getResponseChallenge(
+	response: RegistrationResponseJSON | AuthenticationResponseJSON
+): string | null {
+	let clientData: unknown;
+	try {
+		clientData = JSON.parse(
+			Buffer.from(
+				response.response.clientDataJSON, 'base64url'
+			).toString('utf8')
+		);
+	}
+	catch (error) {
+		if (error instanceof SyntaxError) {
+			return null;
+		}
+
+		throw error;
+	}
+
+	if (
+		typeof clientData !== 'object' ||
+		clientData === null ||
+		!('challenge' in clientData) ||
+		typeof clientData.challenge !== 'string' ||
+		clientData.challenge.length === 0
+	) {
+		return null;
+	}
+
+	return clientData.challenge;
+}
+
 export class Fido2Authentication<
 	TPrincipal extends Principal,
 > extends Authentication<TPrincipal> {
@@ -134,14 +166,19 @@ export class Fido2Authentication<
 			throw new Error('Principal must have an ID');
 		}
 
+		const responseChallenge = getResponseChallenge(response);
+		if (responseChallenge === null) {
+			return { verified: false };
+		}
+
 		// Find the challenge from database
 		const challengesRaw = await this.challengeRepo.find({
 			where: {
+				id: responseChallenge,
 				principal_id: principal.id,
 				challenge_type: 'registration',
 				used: false,
 			},
-			limit: 1,
 		});
 
 		if (challengesRaw.length === 0) {
@@ -266,14 +303,19 @@ export class Fido2Authentication<
 	): Promise<TPrincipal | null> {
 		const { response, principalId } = credentials;
 
+		const responseChallenge = getResponseChallenge(response);
+		if (responseChallenge === null) {
+			return null;
+		}
+
 		// Find the challenge from database
 		const challengesRaw = await this.challengeRepo.find({
 			where: {
+				id: responseChallenge,
 				principal_id: principalId,
 				challenge_type: 'authentication',
 				used: false,
 			},
-			limit: 1,
 		});
 
 		if (challengesRaw.length === 0) {
