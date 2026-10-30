@@ -171,6 +171,10 @@ const fido2Auth = new Fido2Authentication({
 
 ## Security Considerations
 
+### Atomic authentication challenge consumption
+
+After cryptographic verification, authentication conditionally claims the exact unused, unexpired challenge with a unique receipt.
+
 ### Challenge Management
 
 - **Expiration**: Challenges automatically expire after 5 minutes
