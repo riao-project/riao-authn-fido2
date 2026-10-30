@@ -37,7 +37,7 @@ export function isAuthenticationVerificationError(error: unknown): boolean {
 		(error.name === 'InvalidBackupFlags' &&
 			error.message ===
 				'Single-device credential indicated that it was backed up, ' +
-				'which should be impossible.')
+					'which should be impossible.')
 	);
 }
 
@@ -49,12 +49,14 @@ export function hasValidClientDataJSON(data: unknown): boolean {
 		const parsed: unknown = JSON.parse(
 			Buffer.from(data, 'base64url').toString('utf8')
 		);
+
 		return typeof parsed === 'object' && parsed !== null;
 	}
 	catch (error) {
 		if (error instanceof SyntaxError) {
 			return false;
 		}
+
 		throw error;
 	}
 }

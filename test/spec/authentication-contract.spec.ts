@@ -1,3 +1,4 @@
+import { createHash, generateKeyPairSync } from 'crypto';
 import { Database } from '@riao/dbal';
 import { AuthenticationProtection } from '@riao/iam/authentication';
 import { Principal } from '@riao/iam';
@@ -42,7 +43,9 @@ describe('FIDO2 authentication contract', () => {
 			authenticatorData: 'YXV0aA', signature: 'c2ln',
 		},
 	};
-	const verification: Awaited<ReturnType<typeof verifyAuthenticationResponse>> = {
+	const verification: Awaited<
+		ReturnType<typeof verifyAuthenticationResponse>
+	> = {
 		verified: true,
 		authenticationInfo: {
 			credentialID: response.id, newCounter: 1, userVerified: true,
@@ -54,7 +57,8 @@ describe('FIDO2 authentication contract', () => {
 		id: 'challenge', principal_id: 7, challenge_type: 'authentication',
 		expires: new Date(Date.now() + 60_000), used: false,
 	});
-	const authenticate = () => auth.authenticate({ principalId: 7, response });
+	const authenticate = async () =>
+		auth.authenticate({ principalId: 7, response });
 
 	beforeEach(() => {
 		principals = jasmine.createSpyObj('principals', ['findOne']);
@@ -75,7 +79,10 @@ describe('FIDO2 authentication contract', () => {
 			where.consumption_id === consumptionId ?
 				{ id: 'challenge', consumption_id: consumptionId } : null
 		);
-		credentials = jasmine.createSpyObj('credentials', ['findOne', 'update']);
+		credentials = jasmine.createSpyObj(
+			'credentials',
+			['findOne', 'update']
+		);
 		credentials.findOne.and.resolveTo({
 			id: response.id, principal_id: 7, public_key: 'a2V5', counter: 0,
 		});
@@ -97,7 +104,8 @@ describe('FIDO2 authentication contract', () => {
 		});
 		verifier = spyOn(
 			auth as unknown as {
-				verifyAuthenticationResponse: typeof verifyAuthenticationResponse;
+				verifyAuthenticationResponse:
+					typeof verifyAuthenticationResponse;
 			},
 			'verifyAuthenticationResponse'
 		).and.resolveTo(verification);
@@ -118,15 +126,18 @@ describe('FIDO2 authentication contract', () => {
 			expect(credentials.update).toHaveBeenCalledTimes(1);
 		});
 
-	it('returns null for blocked attempts without counting failure', async () => {
-		protection.beforeAttempt.and.resolveTo({
-			allowed: false, retryAfterSeconds: 30,
-		});
-		expect(await authenticate()).toBeNull();
-		expect(principals.findOne).not.toHaveBeenCalled();
-		expect(protection.onFailure).not.toHaveBeenCalled();
-		expect(protection.onSuccess).not.toHaveBeenCalled();
-	});
+	it(
+		'returns null for blocked attempts without counting failure',
+		async () => {
+			protection.beforeAttempt.and.resolveTo({
+				allowed: false, retryAfterSeconds: 30,
+			});
+			expect(await authenticate()).toBeNull();
+			expect(principals.findOne).not.toHaveBeenCalled();
+			expect(protection.onFailure).not.toHaveBeenCalled();
+			expect(protection.onSuccess).not.toHaveBeenCalled();
+		}
+	);
 
 	it('rejects inactive principals before verification', async () => {
 		principals.findOne.and.resolveTo(null);
@@ -149,15 +160,20 @@ describe('FIDO2 authentication contract', () => {
 		expect(verifier).not.toHaveBeenCalled();
 	});
 
-	it('counts verifier false and known assertion errors as failures', async () => {
-		verifier.and.resolveTo({ ...verification, verified: false });
-		expect(await authenticate()).toBeNull();
-		verifier.and.rejectWith(new Error('User not present during authentication'));
-		expect(await authenticate()).toBeNull();
-		expect(protection.onFailure).toHaveBeenCalledTimes(2);
-		expect(challenges.update).not.toHaveBeenCalled();
-		expect(credentials.update).not.toHaveBeenCalled();
-	});
+	it(
+		'counts verifier false and known assertion errors as failures',
+		async () => {
+			verifier.and.resolveTo({ ...verification, verified: false });
+			expect(await authenticate()).toBeNull();
+			verifier.and.rejectWith(
+				new Error('User not present during authentication')
+			);
+			expect(await authenticate()).toBeNull();
+			expect(protection.onFailure).toHaveBeenCalledTimes(2);
+			expect(challenges.update).not.toHaveBeenCalled();
+			expect(credentials.update).not.toHaveBeenCalled();
+		}
+	);
 
 	it('recognizes real verifier challenge and origin mismatches', async () => {
 		verifier.and.callThrough();
@@ -185,7 +201,208 @@ describe('FIDO2 authentication contract', () => {
 		expect(credentials.update).not.toHaveBeenCalled();
 	});
 
-	it('rejects malformed client JSON without swallowing unrelated SyntaxErrors',
+	it('maps real verifier errors to authentication failures',
+		async () => {
+			verifier.and.callThrough();
+			const clientData = (overrides: object = {}) => Buffer.from(
+				JSON.stringify({
+					type: 'webauthn.get',
+					challenge: 'challenge',
+					origin: 'https://example.com',
+					...overrides,
+				})
+			).toString('base64url');
+			const authenticatorData = (
+				flags: number,
+				rpID = 'example.com',
+				counter = 1
+			) => {
+				const data = Buffer.alloc(37);
+				if (rpID) {
+					createHash('sha256').update(rpID).digest().copy(data);
+				}
+				data[32] = flags;
+				data.writeUInt32BE(counter, 33);
+				return data.toString('base64url');
+			};
+			const { publicKey: ecPublicKey } = generateKeyPairSync('ec', {
+				namedCurve: 'prime256v1',
+			});
+			const jwk = ecPublicKey.export({ format: 'jwk' });
+			if (!jwk.x || !jwk.y) {
+				throw new Error('Generated EC key has no coordinates');
+			}
+			const cosePublicKey = Buffer.concat([
+				Buffer.from([
+					0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20,
+				]),
+				Buffer.from(jwk.x, 'base64url'),
+				Buffer.from([0x22, 0x58, 0x20]),
+				Buffer.from(jwk.y, 'base64url'),
+			]).toString('base64');
+			const makeResponse = (
+				overrides: {
+					id?: string;
+					rawId?: string;
+					type?: string;
+					clientDataJSON?: string;
+					authenticatorData?: string;
+					signature?: string;
+					userHandle?: unknown;
+				} = {},
+				clientDataOverrides: object = {}
+			): AuthenticationResponseJSON => ({
+				...response,
+				...overrides,
+				response: {
+					...response.response,
+					...overrides,
+					clientDataJSON:
+						overrides.clientDataJSON ??
+						clientData(clientDataOverrides),
+				},
+			} as AuthenticationResponseJSON);
+
+			const cases: Array<{
+				name: string;
+				response: AuthenticationResponseJSON;
+				counter?: number;
+				publicKey?: string;
+			}> = [
+				{
+					name: 'credential ID encoding mismatch',
+					response: makeResponse({ rawId: 'different' }),
+				},
+				{
+					name: 'unexpected credential type',
+					response: makeResponse({ type: 'unexpected' }),
+				},
+				{
+					name: 'unexpected authentication response type',
+					response: makeResponse({}, { type: 'webauthn.create' }),
+				},
+				{
+					name: 'unexpected challenge',
+					response: makeResponse({}, { challenge: 'wrong' }),
+				},
+				{
+					name: 'unexpected origin',
+					response: makeResponse(
+						{},
+						{ origin: 'https://wrong.example' }
+					),
+				},
+				{
+					name: 'invalid authenticator data encoding',
+					response: makeResponse({ authenticatorData: '!' }),
+				},
+				{
+					name: 'invalid signature encoding',
+					response: makeResponse({ signature: '!' }),
+				},
+				{
+					name: 'invalid user handle type',
+					response: makeResponse({ userHandle: 7 }),
+				},
+				{
+					name: 'invalid token binding type',
+					response: makeResponse({}, { tokenBinding: 'invalid' }),
+				},
+				{
+					name: 'invalid token binding status',
+					response: makeResponse({}, {
+						tokenBinding: { status: 'invalid' },
+					}),
+				},
+				{
+					name: 'short authenticator data',
+					response: makeResponse({
+						authenticatorData: Buffer.alloc(1)
+							.toString('base64url'),
+					}),
+				},
+				{
+					name: 'leftover authenticator data',
+					response: makeResponse({
+						authenticatorData: Buffer.alloc(38)
+							.toString('base64url'),
+					}),
+				},
+				{
+					name: 'unexpected RP ID hash',
+					response: makeResponse({
+						authenticatorData: authenticatorData(0x05, ''),
+					}),
+				},
+				{
+					name: 'user presence flag missing',
+					response: makeResponse({
+						authenticatorData: authenticatorData(0x04),
+					}),
+				},
+				{
+					name: 'user verification flag missing',
+					response: makeResponse({
+						authenticatorData: authenticatorData(0x01),
+					}),
+				},
+				{
+					name: 'counter below stored value',
+					response: makeResponse({
+						authenticatorData: authenticatorData(
+							0x05,
+							'example.com',
+							1
+						),
+					}),
+					counter: 1,
+				},
+				{
+					name: 'impossible backup flags',
+					response: makeResponse({
+						authenticatorData: authenticatorData(0x15),
+					}),
+				},
+				{
+					name: 'malformed ECDSA signature structure',
+					response: makeResponse({
+						signature: Buffer.from([0x30, 0]).toString('base64url'),
+					}),
+					publicKey: cosePublicKey,
+				},
+				{
+					name: 'invalid ECDSA signature component length',
+					response: makeResponse({
+						signature: Buffer.concat([
+							Buffer.from([0x30, 0x45, 0x02, 0x21]),
+							Buffer.alloc(33, 1),
+							Buffer.from([0x02, 0x20]),
+							Buffer.alloc(32, 1),
+						]).toString('base64url'),
+					}),
+					publicKey: cosePublicKey,
+				},
+			];
+
+			for (const testCase of cases) {
+				credentials.findOne.and.resolveTo({
+					id: response.id,
+					principal_id: 7,
+					public_key: testCase.publicKey ?? 'a2V5',
+					counter: testCase.counter ?? 0,
+				});
+				expect(await auth.authenticate({
+					principalId: 7,
+					response: testCase.response,
+				})).withContext(testCase.name).toBeNull();
+			}
+			expect(protection.onFailure).toHaveBeenCalledTimes(cases.length);
+			expect(credentials.update).not.toHaveBeenCalled();
+		});
+
+	it(
+		'rejects malformed client JSON without swallowing ' +
+			'unrelated SyntaxErrors',
 		async () => {
 			expect(await auth.authenticate({
 				principalId: 7,
@@ -198,7 +415,8 @@ describe('FIDO2 authentication contract', () => {
 			verifier.and.rejectWith(failure);
 			await expectAsync(authenticate()).toBeRejectedWith(failure);
 			expect(protection.onFailure).toHaveBeenCalledTimes(1);
-		});
+		}
+	);
 
 	it('propagates counter persistence errors without counting failure',
 		async () => {
@@ -245,8 +463,10 @@ describe('FIDO2 authentication contract', () => {
 	it('recognizes only known SimpleWebAuthn validation errors', () => {
 		for (const message of [
 			'Missing credential ID',
-			'Unexpected authentication response challenge "bad", expected "good"',
-			'Unexpected authentication response origin "bad", expected "good"',
+			'Unexpected authentication response challenge "bad", ' +
+				'expected "good"',
+			'Unexpected authentication response origin "bad", ' +
+				'expected "good"',
 			'Authenticator data was 1 bytes, expected at least 37 bytes',
 			'Response counter value 1 was lower than expected 2',
 		]) {
@@ -255,7 +475,9 @@ describe('FIDO2 authentication contract', () => {
 		}
 		expect(isAuthenticationVerificationError(new Error('crypto outage')))
 			.toBeFalse();
-		expect(isAuthenticationVerificationError({ name: 'UnexpectedRPIDHash' }))
+		expect(isAuthenticationVerificationError({
+			name: 'UnexpectedRPIDHash',
+		}))
 			.toBeFalse();
 		expect(hasValidClientDataJSON(null)).toBeFalse();
 	});
