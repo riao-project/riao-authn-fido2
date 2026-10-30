@@ -171,17 +171,13 @@ const fido2Auth = new Fido2Authentication({
 
 ## Security Considerations
 
-### Credential ownership and challenge expiry
+### Credential ownership
 
-Authentication verifies that the credential belongs to the requested principal
-before cryptographic verification or database mutations. Database adapters that
-return equivalent numeric and string principal IDs are supported.
+Authentication verifies that the credential belongs to the requested principal before cryptographic verification or database mutations.
 
-Authentication and registration reject challenges whose expiry timestamp is
-invalid or at/before the current time before cryptographic verification.
-Authentication returns `null`; registration returns `{ verified: false }`.
-Unexpired challenges follow the existing verification flow. No schema change is
-required for these checks. Atomic challenge consumption is a separate change.
+### Challenge Expiry
+
+Authentication and registration reject challenges if the expiry timestamp is invalid or at/before the current time before cryptographic verification. Authentication returns `null`; registration returns `{ verified: false }`.
 
 ### Challenge Management
 
