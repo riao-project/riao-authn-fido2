@@ -43,6 +43,8 @@ describe('FIDO2 credential ownership', () => {
 	let challenges: jasmine.SpyObj<{
 		find: () => Promise<StoredChallenge[]>;
 		update: (options: unknown) => Promise<void>;
+		findOne: (options: { where: Partial<StoredChallenge> }) =>
+			Promise<StoredChallenge | null>;
 	}>;
 	let credentials: jasmine.SpyObj<{
 		findOne: () => Promise<object | null>;
@@ -60,9 +62,21 @@ describe('FIDO2 credential ownership', () => {
 			public_key: 'a2V5', counter: 0,
 		};
 		verifier = jasmine.createSpy('verifier').and.resolveTo(verification);
-		challenges = jasmine.createSpyObj('challenges', ['find', 'update']);
+		challenges = jasmine.createSpyObj(
+			'challenges', ['find', 'update', 'findOne']
+		);
 		challenges.find.and.callFake(async () => [{ ...challenge }]);
-		challenges.update.and.resolveTo();
+		challenges.update.and.callFake(async (options) => {
+			const { set } = options as {
+				set: Partial<StoredChallenge>;
+			};
+			Object.assign(challenge, set);
+		});
+		challenges.findOne.and.callFake(async ({ where }) =>
+			challenge.id === where.id &&
+			challenge.consumption_id === where.consumption_id ?
+				{ ...challenge } : null
+		);
 		credentials = jasmine.createSpyObj('credentials', [
 			'findOne', 'update',
 		]);
@@ -105,9 +119,21 @@ describe('FIDO2 credential ownership', () => {
 			expect(credentials.update).toHaveBeenCalledWith({
 				set: { counter: 1 }, where: { id: response.id },
 			});
-			expect(challenges.update).toHaveBeenCalledWith({
-				set: { used: true }, where: { id: challenge.id },
+			const update = challenges.update.calls.mostRecent().args[0] as {
+				set: Partial<StoredChallenge>;
+				where: Partial<StoredChallenge> & { expires: object };
+			};
+			expect(update.set).toEqual({
+				used: true,
+				consumption_id: jasmine.any(String),
 			});
+			expect(update.where).toEqual(jasmine.objectContaining({
+				id: challenge.id,
+				principal_id: principal.id,
+				challenge_type: 'authentication',
+				used: false,
+				consumption_id: null,
+			}));
 		});
 
 	it('matches equivalent string and numeric principal IDs', async () => {

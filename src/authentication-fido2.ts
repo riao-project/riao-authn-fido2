@@ -1,7 +1,8 @@
-import { DatabaseRecordId, QueryRepository } from '@riao/dbal';
+import { DatabaseRecordId, QueryRepository, gt } from '@riao/dbal';
 import { Principal, Authentication } from '@riao/iam';
 import { AuthOptions } from '@riao/iam/auth/auth';
 import { Database } from '@riao/dbal';
+import { randomUUID } from 'crypto';
 import {
 	generateRegistrationOptions,
 	verifyRegistrationResponse,
@@ -24,6 +25,7 @@ export interface StoredChallenge {
 	challenge_type: 'registration' | 'authentication';
 	expires: Date;
 	used: boolean;
+	consumption_id?: string | null;
 	created_at?: Date;
 }
 
@@ -359,18 +361,33 @@ export class Fido2Authentication<
 			return null;
 		}
 
+		// Only the conditional-write winner may update the counter and succeed.
+		const consumptionId = randomUUID();
+		await this.challengeRepo.update({
+			set: { used: true, consumption_id: consumptionId },
+			where: {
+				id: storedChallenge.id,
+				principal_id: principalId,
+				challenge_type: 'authentication',
+				used: false,
+				consumption_id: null,
+				expires: gt(new Date()),
+			},
+		});
+		const claimed = await this.challengeRepo.findOne({
+			where: { id: storedChallenge.id, consumption_id: consumptionId },
+		});
+
+		if (!claimed) {
+			return null;
+		}
+
 		// Update counter in database
 		await this.credentialRepo.update({
 			set: {
 				counter: verification.authenticationInfo.newCounter,
 			},
 			where: { id: authenticator.id },
-		});
-
-		// Mark challenge as used
-		await this.challengeRepo.update({
-			set: { used: true },
-			where: { id: storedChallenge.id },
 		});
 
 		// Retrieve and return the principal

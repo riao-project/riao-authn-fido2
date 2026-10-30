@@ -41,6 +41,11 @@ export class CreateFido2ChallengesTableMigration extends Migration {
 					type: ColumnType.BOOL,
 					required: true,
 				},
+				{
+					name: 'consumption_id',
+					type: ColumnType.VARCHAR,
+					length: 64,
+				},
 				// When the challenge expires (typically 5 minutes)
 				{
 					name: 'expires',

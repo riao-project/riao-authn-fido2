@@ -56,6 +56,8 @@ describe('FIDO2 challenge expiry', () => {
 	let challenges: jasmine.SpyObj<{
 		find: (options: ChallengeQuery) => Promise<StoredChallenge[]>;
 		update: (options: unknown) => Promise<void>;
+		findOne: (options: { where: Partial<StoredChallenge> }) =>
+			Promise<StoredChallenge | null>;
 	}>;
 	let credentials: jasmine.SpyObj<{
 		findOne: () => Promise<object | null>;
@@ -86,7 +88,9 @@ describe('FIDO2 challenge expiry', () => {
 			});
 		registrationVerifier = jasmine.createSpy('registrationVerifier')
 			.and.resolveTo({ verified: false });
-		challenges = jasmine.createSpyObj('challenges', ['find', 'update']);
+		challenges = jasmine.createSpyObj(
+			'challenges', ['find', 'update', 'findOne']
+		);
 		challenges.find.and.callFake(async (options) =>
 			[olderChallenge, challenge].filter((candidate) =>
 				candidate.id === options.where.id &&
@@ -95,7 +99,17 @@ describe('FIDO2 challenge expiry', () => {
 				candidate.used === options.where.used
 			)
 		);
-		challenges.update.and.resolveTo();
+		challenges.update.and.callFake(async (options) => {
+			const { set } = options as {
+				set: Partial<StoredChallenge>;
+			};
+			Object.assign(challenge, set);
+		});
+		challenges.findOne.and.callFake(async ({ where }) =>
+			challenge.id === where.id &&
+			challenge.consumption_id === where.consumption_id ?
+				{ ...challenge } : null
+		);
 		credentials = jasmine.createSpyObj('credentials', [
 			'findOne', 'update', 'insert',
 		]);
