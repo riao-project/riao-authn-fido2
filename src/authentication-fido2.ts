@@ -324,6 +324,7 @@ export class Fido2Authentication<
 		const claimed = await this.challengeRepo.findOne({
 			where: { id: storedChallenge.id, consumption_id: consumptionId },
 		});
+
 		if (!claimed) {
 			return null;
 		}
