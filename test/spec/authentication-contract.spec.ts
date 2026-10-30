@@ -17,6 +17,9 @@ describe('FIDO2 authentication contract', () => {
 	let challenges: jasmine.SpyObj<{
 		find: () => Promise<object[]>;
 		update: (options: unknown) => Promise<void>;
+		findOne: (options: {
+			where: { id: string; consumption_id: string };
+		}) => Promise<object | null>;
 	}>;
 	let credentials: jasmine.SpyObj<{
 		findOne: () => Promise<object | null>;
@@ -57,10 +60,21 @@ describe('FIDO2 authentication contract', () => {
 		principals = jasmine.createSpyObj('principals', ['findOne']);
 		principals.findOne.and.resolveTo(principal);
 		challenges = jasmine.createSpyObj('challenges', [
-			'find', 'update',
+			'find', 'update', 'findOne',
 		]);
 		challenges.find.and.resolveTo([challenge()]);
-		challenges.update.and.resolveTo();
+		let consumptionId: string | null = null;
+		challenges.update.and.callFake(async (options) => {
+			const { set } = options as {
+				set: { consumption_id?: string };
+			};
+			consumptionId = set.consumption_id ?? null;
+		});
+		challenges.findOne.and.callFake(async ({ where }) =>
+			where.id === 'challenge' &&
+			where.consumption_id === consumptionId ?
+				{ id: 'challenge', consumption_id: consumptionId } : null
+		);
 		credentials = jasmine.createSpyObj('credentials', ['findOne', 'update']);
 		credentials.findOne.and.resolveTo({
 			id: response.id, principal_id: 7, public_key: 'a2V5', counter: 0,
@@ -191,7 +205,7 @@ describe('FIDO2 authentication contract', () => {
 			const outage = new Error('counter storage unavailable');
 			credentials.update.and.rejectWith(outage);
 			await expectAsync(authenticate()).toBeRejectedWith(outage);
-			expect(challenges.update).not.toHaveBeenCalled();
+			expect(challenges.findOne).toHaveBeenCalledTimes(1);
 			expect(protection.onFailure).not.toHaveBeenCalled();
 			expect(protection.onSuccess).not.toHaveBeenCalled();
 		});
