@@ -166,29 +166,9 @@ principals, verifier `verified: false`, and known SimpleWebAuthn assertion
 validation errors return `null`. Failure/success subjects are principal
 IDs, and assertion secrets are never passed to the protection hooks.
 
-IAM 5's lock entry omits registry `resolved`/`integrity` until publication.
-Regenerate with `npm install --package-lock-only` after release to record
-registry integrity.
+Authentication returns a trusted principal, not an application session or bearer token. Create an application-owned session only on non-null success.
 
-SimpleWebAuthn 13 reports several validation failures as plain `Error`s. The
-driver recognizes a narrow, tested set of its messages; unknown verifier
-exceptions (including crypto/service outages) propagate, as do database and
-protection-hook exceptions. Malformed client JSON is rejected separately at
-the untrusted input boundary. Do not count operational errors as bad credentials.
-
-Counter persistence errors propagate without failure/success hooks.
-Success-hook outages likewise propagate
-after persistence, without reclassifying the attempt as invalid credentials.
-Supply a known principal ID when
-generating options: options generated without one have no stored challenge
-and cannot currently complete this principal-bound authentication flow.
-
-Authentication returns a trusted principal, not an application session or
-bearer token. Create an application-owned session only on non-null success.
-Use generic rejection responses at HTTP boundaries and handle operational
-errors separately (for example HTTP 503). `null` does not carry a retry delay;
-exchange APIs that throw IAM's `AuthenticationBlockedError` may map its
-optional `retryAfterSeconds` to `Retry-After` and HTTP 429.
+Use generic rejection responses at HTTP boundaries and handle operational errors separately (for example HTTP 503). `null` does not carry a retry delay; exchange APIs that throw IAM's `AuthenticationBlockedError` may map its optional `retryAfterSeconds` to `Retry-After` and HTTP 429.
 
 ## Usage Examples
 
