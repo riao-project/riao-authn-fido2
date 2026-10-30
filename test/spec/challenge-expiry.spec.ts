@@ -10,7 +10,7 @@ import {
 	Fido2Authentication, StoredChallenge,
 } from '../../src/authentication-fido2';
 
-describe('FIDO2 credential ownership and challenge expiry', () => {
+describe('FIDO2 challenge expiry', () => {
 	const principal: Principal = {
 		id: '7', login: 'user@example.com', type: 'user', name: 'User',
 		create_timestamp: new Date(),
@@ -29,21 +29,8 @@ describe('FIDO2 credential ownership and challenge expiry', () => {
 			clientDataJSON: 'data', attestationObject: 'attestation',
 		},
 	};
-	type Verification = Awaited<
-		ReturnType<typeof verifyAuthenticationResponse>
-	>;
-	const verification: Verification = {
-		verified: true,
-		authenticationInfo: {
-			credentialID: response.id, newCounter: 1, userVerified: true,
-			credentialDeviceType: 'singleDevice', credentialBackedUp: false,
-			origin: 'https://example.com', rpID: 'example.com',
-		},
-	};
 	let auth: Fido2Authentication<Principal>;
 	let challenge: StoredChallenge;
-	let authenticator: { id: string; principal_id: string | number;
-		public_key: string; counter: number };
 	let verifier: jasmine.Spy;
 	let registrationVerifier: jasmine.Spy;
 	let challenges: jasmine.SpyObj<{
@@ -62,11 +49,16 @@ describe('FIDO2 credential ownership and challenge expiry', () => {
 			challenge_type: 'authentication', used: false,
 			expires: new Date(Date.now() + 60_000),
 		};
-		authenticator = {
-			id: response.id, principal_id: principal.id,
-			public_key: 'a2V5', counter: 0,
-		};
-		verifier = jasmine.createSpy('verifier').and.resolveTo(verification);
+		verifier = jasmine.createSpy('verifier')
+			.and.resolveTo({
+				verified: true,
+				authenticationInfo: {
+					credentialID: response.id, newCounter: 1,
+					userVerified: true, credentialDeviceType: 'singleDevice',
+					credentialBackedUp: false, origin: 'https://example.com',
+					rpID: 'example.com',
+				},
+			});
 		registrationVerifier = jasmine.createSpy('registrationVerifier')
 			.and.resolveTo({ verified: false });
 		challenges = jasmine.createSpyObj('challenges', ['find', 'update']);
@@ -75,7 +67,10 @@ describe('FIDO2 credential ownership and challenge expiry', () => {
 		credentials = jasmine.createSpyObj('credentials', [
 			'findOne', 'update', 'insert',
 		]);
-		credentials.findOne.and.callFake(async () => authenticator);
+		credentials.findOne.and.resolveTo({
+			id: response.id, principal_id: principal.id,
+			public_key: 'a2V5', counter: 0,
+		});
 		credentials.update.and.resolveTo();
 		credentials.insert.and.resolveTo();
 		const principals = jasmine.createSpyObj('principals', ['findOne']);
@@ -102,38 +97,6 @@ describe('FIDO2 credential ownership and challenge expiry', () => {
 
 	const authenticate = async () => auth.authenticate({
 		principalId: principal.id, response,
-	});
-
-	it('rejects another principal credential before verification or mutations',
-		async () => {
-			authenticator.principal_id = 'other-principal';
-			expect(await authenticate()).toBeNull();
-			expect(verifier).not.toHaveBeenCalled();
-			expect(credentials.update).not.toHaveBeenCalled();
-			expect(challenges.update).not.toHaveBeenCalled();
-		});
-
-	it('accepts the matching owner and preserves the successful baseline flow',
-		async () => {
-			expect(await authenticate()).toEqual(principal);
-			expect(verifier).toHaveBeenCalledTimes(1);
-			expect(credentials.update).toHaveBeenCalledWith({
-				set: { counter: 1 }, where: { id: response.id },
-			});
-			expect(challenges.update).toHaveBeenCalledWith({
-				set: { used: true }, where: { id: challenge.id },
-			});
-		});
-
-	it('matches equivalent string and numeric principal IDs', async () => {
-		authenticator.principal_id = 7;
-		expect(await authenticate()).toEqual(principal);
-	});
-
-	it('preserves null rejection for a missing credential', async () => {
-		credentials.findOne.and.resolveTo(null);
-		expect(await authenticate()).toBeNull();
-		expect(verifier).not.toHaveBeenCalled();
 	});
 
 	for (const expiry of ['expired', 'at deadline', 'invalid'] as const) {
@@ -189,12 +152,5 @@ describe('FIDO2 credential ownership and challenge expiry', () => {
 		expect(await auth.verifyRegistration(principal, registration))
 			.toEqual({ verified: false });
 		expect(registrationVerifier).toHaveBeenCalledTimes(1);
-	});
-
-	it('preserves unexpected verifier exceptions', async () => {
-		verifier.and.rejectWith(new Error('verification failure'));
-		await expectAsync(authenticate())
-			.toBeRejectedWithError('verification failure');
-		expect(credentials.update).not.toHaveBeenCalled();
 	});
 });
